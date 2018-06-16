@@ -2,6 +2,7 @@ import re, sys, os, time, datetime, csv
 from dateutil.relativedelta import *
 import pandas
 import sqlite3 as lite
+from dateutil import parser
 #from yahoo_finance_historical_data_extract import YFHistDataExtr
 #from Yahoo_finance_YQL_company_data import YComDataExtr #use for fast retrieval of data.
 import pandas_datareader.data as web   # Package and modules for importing data; this code may change depending on pandas version
@@ -105,13 +106,13 @@ class FinanceDataStore(object):
                 if (self.TableNotExist()):
                     print ("table not exist")
                     stock_df.to_sql(self.hist_data_tablename, self.con, flavor='sqlite',
-                                        schema=None, if_exists='append', index=True,
+                                        schema=None, if_exists='append', index=False,
                                         index_label=None, chunksize=None, dtype=None)
                 else:
                     if(self.TableEmpty()):
                         print ("table is empty")
                         stock_df.to_sql(self.hist_data_tablename, self.con, flavor='sqlite',
-                                        schema=None, if_exists='append', index=True,
+                                        schema=None, if_exists='append', index=False,
                                         index_label=None, chunksize=None, dtype=None)
                     else:
                         if (susublist not in self.retrieve_stocklist_fr_db()):
@@ -119,7 +120,7 @@ class FinanceDataStore(object):
                             print (susublist)
                             print (self.retrieve_stocklist_fr_db())
                             stock_df.to_sql(self.hist_data_tablename, self.con, flavor='sqlite',
-                                        schema=None, if_exists='append', index=True,
+                                        schema=None, if_exists='append', index=False,
                                         index_label=None, chunksize=None, dtype=None)
                         else:
                             print ("stock in list")
@@ -132,34 +133,41 @@ class FinanceDataStore(object):
 #        print (stock_df.columns.values.tolist())
         DF_Date_Min= stock_df['Date'].min()
         DF_Date_Max= stock_df['Date'].max()
+        
+#        print (type(DF_Date_Min))
+#        print (DF_Date_Max)
+        
         stock_name = stock_df['SYMBOL'].tolist()[0]
-        print (stock_name)
+#        print (stock_name)
         
         #retrieve stock date only and then compare with the above max and min dates and then choose what to do.
         self.cur.execute('SELECT Max(Date) FROM '+self.hist_data_tablename+' WHERE SYMBOL=?', (stock_name,) )
-        db_max = self.cur.fetchone()[0]
+        db_max = datetime.datetime.strptime(self.cur.fetchone()[0], "%Y-%m-%d %H:%M:%S")
+        
         self.cur.execute('SELECT Min(Date) FROM '+self.hist_data_tablename+' WHERE SYMBOL=?', (stock_name,) )
-        db_min = self.cur.fetchone()[0]
+        db_min = datetime.datetime.strptime(self.cur.fetchone()[0], "%Y-%m-%d %H:%M:%S")
+#        print (type(db_max))
         
+        if (FinanceDataStore.date_not_overlap(DF_Date_Min, DF_Date_Max, db_min, db_max)):
+            print ("no overlap on dates")
+            stock_df.to_sql(self.hist_data_tablename, self.con, flavor='sqlite',
+                                        schema=None, if_exists='append', index=False,
+                                        index_label=None, chunksize=None, dtype=None)
+        else:
+            overlap_min = max(DF_Date_Min, db_min)
+            overlap_max = min(DF_Date_Max, db_max)
+            print ("overlap dates will be within " + str(overlap_min)+" and "+ str(overlap_max))
+            new_df = stock_df[~((stock_df['Date'] > overlap_min ) & (stock_df['Date'] < overlap_max))]
+            new_df.to_sql(self.hist_data_tablename, self.con, flavor='sqlite',
+                                        schema=None, if_exists='append', index=False,
+                                        index_label=None, chunksize=None, dtype=None)
         
-#        print (DF_Date_Min)
-#        print (DF_Date_Max)
-#        DB_Date_Min = 
-        
-        
-        
-        
-        
-        
-        return 0    
-        
-        
-#        df1[~df1.isin(df2)].dropna()
+        return 0
     
-#    def Retrieve_Max_Min_Date(self, stock_symbol):
-        
     
-    
+    @staticmethod
+    def date_not_overlap(dt1_st, dt1_end, dt2_st, dt2_end):
+        return not (dt1_st < dt2_end and dt1_end >dt2_st)
     
     
     def scan_and_input_recent_prices(self, stock_sym_list, num_days_for_updates = 30 ):

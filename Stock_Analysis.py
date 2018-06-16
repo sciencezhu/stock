@@ -19,11 +19,13 @@ def main():
 #    print (lite.version)
     db = StockDB.FinanceDataStore("db.db")
     
-    print (db.TableNotExist())
+#    print (db.TableNotExist())
    
-#    db.setup_db_for_hist_prices_storage(["AAPL"], start= datetime.date.today()-relativedelta(years=20), end = datetime.date.today())
+    db.setup_db_for_hist_prices_storage(["AAPL"], start= datetime.date.today()-relativedelta(years=2), end = datetime.date.today()-relativedelta(months=1))
     
-    db.scan_and_input_recent_prices(["AAPL"], num_days_for_updates = 100 )
+    db.setup_db_for_hist_prices_storage(["AAPL"], start= datetime.date.today()-relativedelta(months=2), end = datetime.date.today())
+    
+#    db.scan_and_input_recent_prices(["AAPL"], num_days_for_updates = 100 )
     
 #    print (db.retrieve_stocklist_fr_db())
     
